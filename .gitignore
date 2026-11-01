@@ -1,4 +1,15 @@
+# Java compiled files
 *.class
+
+# macOS files
 .DS_Store
+
+# IDE files
 .vscode/
 
+# Environment variables and secrets
+.env
+.env.*
+
+# MySQL Connector/J library
+lib/*.jar

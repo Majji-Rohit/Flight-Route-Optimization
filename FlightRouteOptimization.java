@@ -6,37 +6,49 @@ public class FlightRouteOptimization {
     static class Edge {
         String destination;
         int distance;
+        double fare;
 
-        Edge(String destination, int distance) {
+        Edge(String destination, int distance, double fare) {
             this.destination = destination;
             this.distance = distance;
+            this.fare = fare;
         }
     }
 
     static class Node {
         String airport;
-        int distance;
+        double cost;
 
-        Node(String airport, int distance) {
+        Node(String airport, double cost) {
             this.airport = airport;
-            this.distance = distance;
+            this.cost = cost;
         }
     }
 
     static class Graph {
-        private final Map<String, List<Edge>> adjList = new LinkedHashMap<>();
+
+        private final Map<String, List<Edge>> adjList =
+            new LinkedHashMap<>();
 
         void addAirport(String airport) {
-            adjList.putIfAbsent(airport.toUpperCase(), new ArrayList<>());
+            adjList.putIfAbsent(
+                airport.toUpperCase(),
+                new ArrayList<>()
+            );
         }
 
-        void addFlight(String source, String destination, int distance) {
+        void addFlight(
+            String source,
+            String destination,
+            int distance,
+            double fare
+        ) {
             source = source.toUpperCase();
             destination = destination.toUpperCase();
 
-            if (distance <= 0) {
+            if (distance <= 0 || fare <= 0) {
                 throw new IllegalArgumentException(
-                    "Distance must be positive."
+                    "Distance and fare must be positive."
                 );
             }
 
@@ -47,11 +59,17 @@ public class FlightRouteOptimization {
                 );
             }
 
-            adjList.get(source).add(new Edge(destination, distance));
-            adjList.get(destination).add(new Edge(source, distance));
+            adjList.get(source).add(
+                new Edge(destination, distance, fare)
+            );
+
+            adjList.get(destination).add(
+                new Edge(source, distance, fare)
+            );
         }
 
         void displayAirports() {
+
             System.out.println("\nAvailable Airports:");
 
             for (String airport : adjList.keySet()) {
@@ -60,49 +78,62 @@ public class FlightRouteOptimization {
         }
 
         void displayFlights() {
+
             System.out.println("\nAvailable Flight Routes:");
 
             for (String airport : adjList.keySet()) {
+
                 for (Edge edge : adjList.get(airport)) {
+
                     if (airport.compareTo(edge.destination) < 0) {
+
                         System.out.println(
                             airport + " <-> " + edge.destination
-                            + " : " + edge.distance + " km"
+                            + " | Distance: " + edge.distance
+                            + " km | Fare: Rs. "
+                            + String.format("%.2f", edge.fare)
                         );
                     }
                 }
             }
         }
 
-        void findShortestRoute(String source, String destination) {
+        void findOptimalRoute(
+            String source,
+            String destination,
+            boolean useFare
+        ) {
+
             source = source.toUpperCase();
             destination = destination.toUpperCase();
 
             if (!adjList.containsKey(source)
                     || !adjList.containsKey(destination)) {
+
                 System.out.println("Invalid airport code.");
                 return;
             }
 
-            Map<String, Integer> distances = new HashMap<>();
+            Map<String, Double> distances = new HashMap<>();
             Map<String, String> parent = new HashMap<>();
 
             for (String airport : adjList.keySet()) {
-                distances.put(airport, Integer.MAX_VALUE);
+                distances.put(airport, Double.MAX_VALUE);
             }
 
             PriorityQueue<Node> pq = new PriorityQueue<>(
-                Comparator.comparingInt(node -> node.distance)
+                Comparator.comparingDouble(node -> node.cost)
             );
 
-            distances.put(source, 0);
-            pq.offer(new Node(source, 0));
+            distances.put(source, 0.0);
+            pq.offer(new Node(source, 0.0));
 
             while (!pq.isEmpty()) {
+
                 Node current = pq.poll();
                 String airport = current.airport;
 
-                if (current.distance != distances.get(airport)) {
+                if (current.cost > distances.get(airport)) {
                     continue;
                 }
 
@@ -111,33 +142,42 @@ public class FlightRouteOptimization {
                 }
 
                 for (Edge edge : adjList.get(airport)) {
-                    long newDistance =
-                        (long) current.distance + edge.distance;
 
-                    if (newDistance < distances.get(edge.destination)) {
-                        distances.put(
-                            edge.destination, (int) newDistance
-                        );
+                    double weight = useFare
+                        ? edge.fare
+                        : edge.distance;
+
+                    double newCost = current.cost + weight;
+
+                    if (newCost < distances.get(edge.destination)) {
+
+                        distances.put(edge.destination, newCost);
 
                         parent.put(edge.destination, airport);
 
-                        pq.offer(new Node(
-                            edge.destination, (int) newDistance
-                        ));
+                        pq.offer(
+                            new Node(edge.destination, newCost)
+                        );
                     }
                 }
             }
 
-            if (distances.get(destination) == Integer.MAX_VALUE) {
-                System.out.println("No route available between "
-                    + source + " and " + destination);
+            if (distances.get(destination) == Double.MAX_VALUE) {
+
+                System.out.println(
+                    "No route available between "
+                    + source + " and " + destination
+                );
+
                 return;
             }
 
             List<String> path = new ArrayList<>();
+
             String current = destination;
 
             while (current != null) {
+
                 path.add(current);
 
                 if (current.equals(source)) {
@@ -150,14 +190,29 @@ public class FlightRouteOptimization {
             Collections.reverse(path);
 
             System.out.println("\n===== OPTIMAL FLIGHT ROUTE =====");
+
             System.out.println("Source: " + source);
             System.out.println("Destination: " + destination);
-            System.out.println("Shortest Distance: "
-                + distances.get(destination) + " km");
+
+            if (useFare) {
+
+                System.out.printf(
+                    "Cheapest Fare: Rs. %.2f%n",
+                    distances.get(destination)
+                );
+
+            } else {
+
+                System.out.printf(
+                    "Shortest Distance: %.0f km%n",
+                    distances.get(destination)
+                );
+            }
 
             System.out.print("Route: ");
 
             for (int i = 0; i < path.size(); i++) {
+
                 System.out.print(path.get(i));
 
                 if (i < path.size() - 1) {
@@ -165,50 +220,75 @@ public class FlightRouteOptimization {
                 }
             }
 
-            System.out.println("\nNumber of Flights: "
-                + (path.size() - 1));
+            System.out.println(
+                "\nNumber of Flights: " + (path.size() - 1)
+            );
+
             System.out.println("================================");
         }
     }
 
     public static void main(String[] args) {
+
         Scanner sc = new Scanner(System.in);
+
         Graph graph = new Graph();
 
-        String[] airports = {
-            "DEL", "BOM", "BLR", "HYD", "MAA", "CCU", "COK"
-        };
+        System.out.println("Loading data from MySQL...");
+
+        List<String> airports = AirportDAO.getAllAirports();
+
+        List<FlightDAO.Flight> flights =
+            FlightDAO.getAllFlights();
+
+        if (airports.isEmpty() || flights.isEmpty()) {
+
+            System.out.println(
+                "Unable to load project data from database."
+            );
+
+            sc.close();
+            return;
+        }
 
         for (String airport : airports) {
             graph.addAirport(airport);
         }
 
-        graph.addFlight("DEL", "BOM", 1150);
-        graph.addFlight("DEL", "BLR", 1700);
-        graph.addFlight("DEL", "HYD", 1250);
-        graph.addFlight("BOM", "BLR", 840);
-        graph.addFlight("BOM", "HYD", 620);
-        graph.addFlight("BOM", "CCU", 1650);
-        graph.addFlight("BLR", "HYD", 500);
-        graph.addFlight("BLR", "MAA", 350);
-        graph.addFlight("BLR", "COK", 530);
-        graph.addFlight("HYD", "MAA", 520);
-        graph.addFlight("HYD", "CCU", 1000);
-        graph.addFlight("MAA", "COK", 550);
-        graph.addFlight("CCU", "MAA", 1350);
+        for (FlightDAO.Flight flight : flights) {
 
-int choice = 0;
+            graph.addFlight(
+                flight.source,
+                flight.destination,
+                flight.distance,
+                flight.fare
+            );
+        }
+
+        System.out.println("Database data loaded successfully!");
+
+        int choice = 0;
 
         do {
-            System.out.println("\nFLIGHT ROUTE OPTIMIZATION SYSTEM");
+
+            System.out.println(
+                "\nFLIGHT ROUTE OPTIMIZATION SYSTEM"
+            );
+
             System.out.println("1. Display Airports");
             System.out.println("2. Display Flight Routes");
             System.out.println("3. Find Shortest Route");
-            System.out.println("4. Exit");
+            System.out.println("4. Find Cheapest Route");
+            System.out.println("5. Exit");
+
             System.out.print("Enter your choice: ");
 
             if (!sc.hasNextInt()) {
-                System.out.println("Please enter a valid number.");
+
+                System.out.println(
+                    "Please enter a valid number."
+                );
+
                 sc.nextLine();
                 continue;
             }
@@ -217,33 +297,71 @@ int choice = 0;
             sc.nextLine();
 
             switch (choice) {
+
                 case 1:
+
                     graph.displayAirports();
                     break;
 
                 case 2:
+
                     graph.displayFlights();
                     break;
 
                 case 3:
+
                     System.out.print("Enter source airport: ");
-                    String source = sc.nextLine().trim();
+                    String source1 = sc.nextLine().trim();
 
-                    System.out.print("Enter destination airport: ");
-                    String destination = sc.nextLine().trim();
+                    System.out.print(
+                        "Enter destination airport: "
+                    );
 
-                    graph.findShortestRoute(source, destination);
+                    String destination1 = sc.nextLine().trim();
+
+                    graph.findOptimalRoute(
+                        source1,
+                        destination1,
+                        false
+                    );
+
                     break;
 
                 case 4:
-                    System.out.println("Thank you for using the system.");
+
+                    System.out.print("Enter source airport: ");
+                    String source2 = sc.nextLine().trim();
+
+                    System.out.print(
+                        "Enter destination airport: "
+                    );
+
+                    String destination2 = sc.nextLine().trim();
+
+                    graph.findOptimalRoute(
+                        source2,
+                        destination2,
+                        true
+                    );
+
+                    break;
+
+                case 5:
+
+                    System.out.println(
+                        "Thank you for using the system."
+                    );
+
                     break;
 
                 default:
-                    System.out.println("Invalid choice. Try again.");
+
+                    System.out.println(
+                        "Invalid choice. Try again."
+                    );
             }
 
-        } while (choice != 4);
+        } while (choice != 5);
 
         sc.close();
     }
